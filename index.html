@@ -175,7 +175,7 @@
 (function(){
   "use strict";
   var PRANK={High:0,Medium:1,Low:2};
-  var KEY="daybook:v2";
+  var KEY="daybook:v3";
   var PALETTE=["#4F46E5","#0D9488","#EA7317","#DB2777","#2563EB","#059669","#7C3AED","#D97706","#0891B2","#BE123C"];
 
   var seedCats=[
@@ -186,13 +186,16 @@
   ];
   var t0=Date.now();
   var seedTasks=[
-    {text:"Client 1 Care — morning shift (6:30 AM–1:30 PM)", priority:"High",   category:"HavenSync Care",   tags:["shift"]},
-    {text:"Client 2 Care — afternoon shift (1:30–4:30 PM)",  priority:"High",   category:"HavenSync Care",   tags:["shift"]},
-    {text:"Work on next AMT2 task (KMM1) — AFT2 is done \u2713", priority:"Medium", category:"School",        tags:["wgu"]},
-    {text:"Check WGU portal for AMT2 task due date",          priority:"Low",    category:"School",           tags:["wgu"]},
-    {text:"Draft next \u201CFan into Flame\u201D issue (biweekly)", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
-    {text:"Find last Substack date \u2192 set next publish day", priority:"Low", category:"The King's Ember",  tags:["substack"]},
-    {text:"Quiet time",                                       priority:"Low",    category:"Personal",         tags:[]}
+    {text:"Capstone cycle 1 — reading + start Marketplace Simulation (Aug 4–5, eve)", priority:"High", category:"School", tags:["capstone","wgu"]},
+    {text:"WGU Capstone Orientation (C216/C218/C219) — join from portal (Aug 5, 1:00 PM ET)", priority:"High", category:"School", tags:["capstone","orientation"]},
+    {text:"Marketplace Simulation orientation — bring laptop + wifi (Aug 8, 11:00 AM CT, Panama City)", priority:"High", category:"School", tags:["capstone","simulation"]},
+    {text:"Capstone cycles 2 & 3 — due before Aug 31 (after Florida, back Aug 10)", priority:"Medium", category:"School", tags:["capstone","wgu"]},
+    {text:"Open business bank account + sort insurance — before Florida (Aug 3–5)", priority:"High", category:"HavenSync Care", tags:["business"]},
+    {text:"Set up 1 social channel (Facebook or Instagram) — parked till after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
+    {text:"Publish \u201CFan into Flame\u201D newsletter, then rest (Aug 2, Sun)", priority:"High", category:"The King's Ember", tags:["substack","newsletter"]},
+    {text:"CPR class — Muncie VA (Jul 31, 1:00 PM)", priority:"High", category:"Personal", tags:["cpr","va"]},
+    {text:"Drive to Panama City, FL — passenger reading time (Aug 6, Thu)", priority:"Medium", category:"Personal", tags:["travel","florida"]},
+    {text:"Drive home (Aug 10, Mon)", priority:"Low", category:"Personal", tags:["travel"]}
   ].map(function(t,i){ t.id="seed"+i; t.done=false; t.created=t0+i; return t; });
 
   var state={ categories:seedCats.slice(), tasks:seedTasks.slice() };
