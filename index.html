@@ -175,10 +175,11 @@
 (function(){
   "use strict";
   var PRANK={High:0,Medium:1,Low:2};
-  var KEY="daybook:v3";
+  var KEY="daybook:v4";
   var PALETTE=["#4F46E5","#0D9488","#EA7317","#DB2777","#2563EB","#059669","#7C3AED","#D97706","#0891B2","#BE123C"];
 
   var seedCats=[
+    {name:"NSLS",             color:"#BE123C"},
     {name:"School",           color:"#4F46E5"},
     {name:"HavenSync Care",   color:"#0D9488"},
     {name:"The King's Ember", color:"#EA7317"},
@@ -186,16 +187,20 @@
   ];
   var t0=Date.now();
   var seedTasks=[
+    {text:"SNT #1 w/Rachel — Sun Aug 9, 2:00 PM Central in Florida (= 3 PM ET)", priority:"High", category:"NSLS", tags:["nsls","snt"]},
+    {text:"SNT #2 w/Rachel — Sun Aug 16, 3:00 PM ET", priority:"High", category:"NSLS", tags:["nsls","snt"]},
+    {text:"SNT #3 w/Rachel — Sun Aug 23, 3:00 PM ET", priority:"High", category:"NSLS", tags:["nsls","snt"]},
+    {text:"Finish ALL Steps to Induction — by Aug 20", priority:"High", category:"NSLS", tags:["nsls","deadline"]},
+    {text:"NSLS Virtual Induction Ceremony — Sept 10", priority:"Medium", category:"NSLS", tags:["nsls"]},
     {text:"Capstone cycle 1 — reading + start Marketplace Simulation (Aug 4–5, eve)", priority:"High", category:"School", tags:["capstone","wgu"]},
     {text:"WGU Capstone Orientation (C216/C218/C219) — join from portal (Aug 5, 1:00 PM ET)", priority:"High", category:"School", tags:["capstone","orientation"]},
-    {text:"Marketplace Simulation orientation — bring laptop + wifi (Aug 8, 11:00 AM CT, Panama City)", priority:"High", category:"School", tags:["capstone","simulation"]},
-    {text:"Capstone cycles 2 & 3 — due before Aug 31 (after Florida, back Aug 10)", priority:"Medium", category:"School", tags:["capstone","wgu"]},
-    {text:"Open business bank account + sort insurance — before Florida (Aug 3–5)", priority:"High", category:"HavenSync Care", tags:["business"]},
-    {text:"Set up 1 social channel (Facebook or Instagram) — parked till after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
-    {text:"Publish \u201CFan into Flame\u201D newsletter, then rest (Aug 2, Sun)", priority:"High", category:"The King's Ember", tags:["substack","newsletter"]},
-    {text:"CPR class — Muncie VA (Jul 31, 1:00 PM)", priority:"High", category:"Personal", tags:["cpr","va"]},
-    {text:"Drive to Panama City, FL — passenger reading time (Aug 6, Thu)", priority:"Medium", category:"Personal", tags:["travel","florida"]},
-    {text:"Drive home (Aug 10, Mon)", priority:"Low", category:"Personal", tags:["travel"]}
+    {text:"Marketplace Simulation orientation — laptop + wifi (Aug 8, 12:00 PM ET / 11 AM in FL)", priority:"High", category:"School", tags:["capstone","simulation"]},
+    {text:"Capstone Task 2 — DUE Aug 19", priority:"High", category:"School", tags:["capstone","deadline"]},
+    {text:"Capstone cycles 2 & 3 — done before Aug 31", priority:"Medium", category:"School", tags:["capstone","wgu"]},
+    {text:"Open business bank account + sort insurance", priority:"High", category:"HavenSync Care", tags:["business"]},
+    {text:"Set up 1 social channel (Facebook or Instagram) — after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
+    {text:"Publish \u201CFan into Flame\u201D — next Sun Aug 16 (biweekly)", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
+    {text:"Florida trip — Panama City (Aug 6–10)", priority:"Medium", category:"Personal", tags:["travel","florida"]}
   ].map(function(t,i){ t.id="seed"+i; t.done=false; t.created=t0+i; return t; });
 
   var state={ categories:seedCats.slice(), tasks:seedTasks.slice() };
