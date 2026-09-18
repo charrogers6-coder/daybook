@@ -190,6 +190,7 @@
       <div class="spacer"></div>
       <span class="f-actions">
         <button class="link-btn" id="clear-filter" hidden>Clear filter</button>
+        <button class="link-btn" id="toggle-done" hidden>Done</button>
         <button class="link-btn" id="toggle-tags" hidden>Tags</button>
         <button class="link-btn" id="toggle-mgr">Areas</button>
       </span>
@@ -214,23 +215,16 @@
     {name:"Personal",         color:"#DB2777"}
   ];
   var t0=Date.now();
-  // NOTE: seed ids are positional ("seed"+index), so editing this array renumbers everything after
-  // the edit. Patches that target seed ids must run against SAVED state only (see applyMaintenance).
+  // Seed ids are explicit and stable -- never derive them from array position, or editing this
+  // list silently renumbers the rest and any id-based patch targets the wrong task.
   var seedTasks=[
-    {text:"SNT #1 w/Rachel — Sun Aug 9, 2:00 PM Central in Florida (= 3 PM ET)", priority:"High", category:"NSLS", tags:["nsls","snt"]},
-    {text:"SNT #2 w/Rachel — Sun Aug 16, 3:00 PM ET", priority:"High", category:"NSLS", tags:["nsls","snt"]},
-    {text:"SNT #3 w/Rachel — Sun Aug 23, 3:00 PM ET", priority:"High", category:"NSLS", tags:["nsls","snt"]},
-    {text:"Finish ALL Steps to Induction — by Aug 20", priority:"High", category:"NSLS", tags:["nsls","deadline"]},
-    {text:"NSLS Virtual Induction Ceremony — Sept 10", priority:"Medium", category:"NSLS", tags:["nsls"]},
-    {text:"Capstone cycle 1 — reading + start Marketplace Simulation (Aug 4–5, eve)", priority:"High", category:"School", tags:["capstone","wgu"]},
-    {text:"WGU Capstone Orientation (C216/C218/C219) — join from portal (Aug 5, 1:00 PM ET)", priority:"High", category:"School", tags:["capstone","orientation"]},
-    {text:"Marketplace Simulation orientation — laptop + wifi (Aug 8, 12:00 PM ET / 11 AM in FL)", priority:"High", category:"School", tags:["capstone","simulation"]},
-    {text:"Capstone Task 2 — DUE Aug 19", priority:"High", category:"School", tags:["capstone","deadline"]},
-    {text:"Capstone cycles 2 & 3 — done before Aug 31", priority:"Medium", category:"School", tags:["capstone","wgu"]},
-    {text:"Set up 1 social channel (Facebook or Instagram) — after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
-    {text:"Publish \u201CFan into Flame\u201D — 1st Sunday monthly, next Oct 4", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
-    {text:"Florida trip — Panama City (Aug 6–10)", priority:"Medium", category:"Personal", tags:["travel","florida"]}
-  ].map(function(t,i){ t.id="seed"+i; t.done=false; t.created=t0+i; return t; });
+    {id:"s-nsls-kit",   text:"Awaiting induction kit — due Sept 18", priority:"High", category:"NSLS", tags:["nsls"]},
+    {id:"s-school-deg", text:"Awaiting degree — courses complete", priority:"Low", category:"School", tags:["wgu","degree"]},
+    {id:"s-hs-social",  text:"Set up 1 social channel (Facebook or Instagram) — after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
+    {id:"s-ke-post",    text:"Publish \u201CFan into Flame\u201D — 1st Sunday monthly", recur:"first-sunday", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
+    {id:"s-fl-oct",     text:"Florida trip — Oct 16–23", priority:"Medium", category:"Personal", tags:["travel","florida"]}
+  ].map(function(t,i){ t.done=false; t.created=t0+i; return t; });
+  function seedById(id){ for(var i=0;i<seedTasks.length;i++){ if(seedTasks[i].id===id) return seedTasks[i]; } return null; }
 
   // ---- HavenSync launch checklist, added Sept 2026. Applied additively to saved state (see applyPatch). ----
   var PATCH_ID="2026-09-launch";
@@ -324,7 +318,7 @@
 
   function cloneTask(t){
     return {id:t.id, text:t.text, done:t.done, priority:t.priority, category:t.category,
-      tags:t.tags.slice(), created:t.created,
+      tags:t.tags.slice(), created:t.created, recur:t.recur,
       items:(t.items||[]).map(function(s){ return {id:s.id, text:s.text, done:s.done}; })};
   }
 
@@ -333,6 +327,7 @@
   var filter={category:"all", tag:null};
   var mgrOpen=false;
   var tagsOpen=false;
+  var showDone=false;   // completed tasks are tucked away until asked for
   var expanded={};      // task id -> sub-item list open? view state, not persisted
   var focusSub=null;    // task id whose add-item input should regain focus after render
 
@@ -355,7 +350,7 @@
   var elDate=$("date"),elLeftN=$("left-n"),elLeftLbl=$("left-lbl"),elFill=$("meter-fill"),elCap=$("meter-cap"),
       elText=$("task-text"),elAdd=$("add-btn"),elCatSelect=$("cat-select"),elTagInput=$("tag-input"),
       elCatFilter=$("cat-filter"),elTagFilters=$("tag-filters"),elClearFilter=$("clear-filter"),
-      elToggleTags=$("toggle-tags"),elToggleMgr=$("toggle-mgr"),elMgr=$("mgr"),elList=$("list"),
+      elToggleDone=$("toggle-done"),elToggleTags=$("toggle-tags"),elToggleMgr=$("toggle-mgr"),elMgr=$("mgr"),elList=$("list"),
       priSeg=document.querySelector(".pri-seg");
 
   function colorFor(name){ for(var i=0;i<state.categories.length;i++){ if(state.categories[i].name===name) return state.categories[i].color; } return "#9AA3B0"; }
@@ -368,6 +363,24 @@
       t.tags.forEach(function(g){set[g]=1;});
     });
     return Object.keys(set).sort(); }
+  // Recurring dates are computed at render time, never stored -- a baked-in date is correct once
+  // and wrong every month after.
+  var MONS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function nextFirstSunday(from){
+    var d=from||new Date(), today=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    for(var k=0;k<14;k++){
+      var first=new Date(today.getFullYear(),today.getMonth()+k,1);
+      var sun=new Date(first.getFullYear(),first.getMonth(),1+((7-first.getDay())%7));
+      if(sun>=today) return sun;
+    }
+    return null;
+  }
+  function taskLabel(t,from){
+    if(t.recur!=="first-sunday") return t.text;
+    var d=nextFirstSunday(from);
+    return d?t.text+", next "+MONS[d.getMonth()]+" "+d.getDate():t.text;
+  }
+
   function esc(s){ return s.replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
 
   function render(){
@@ -382,15 +395,26 @@
 
     syncCatSelect(); syncCatFilter(); syncTagFilters(); if(mgrOpen) renderMgr();
 
-    elList.innerHTML="";
-    if(total===0){ elList.innerHTML='<div class="empty"><div class="big">A clean page.</div>Add your first task above to shape the day.</div>'; return; }
-
-    var visible=state.tasks.filter(function(t){
+    // Everything matching the area/tag filters, before completed tasks are tucked away.
+    var inFilter=state.tasks.filter(function(t){
       if(filter.category!=="all"&&t.category!==filter.category) return false;
       if(filter.tag&&t.tags.indexOf(filter.tag)<0) return false;
       return true;
     });
-    if(visible.length===0){ elList.innerHTML='<div class="empty"><div class="big">Nothing matches that filter.</div>Clear it to see the rest of your day.</div>'; return; }
+    var doneHere=inFilter.filter(function(t){return t.done;}).length;
+    syncDoneBtn(doneHere);
+    var visible=showDone?inFilter:inFilter.filter(function(t){return !t.done;});
+
+    elList.innerHTML="";
+    if(total===0){ elList.innerHTML='<div class="empty"><div class="big">A clean page.</div>Add your first task above to shape the day.</div>'; return; }
+
+    if(visible.length===0){
+      elList.innerHTML = doneHere>0
+        ? '<div class="empty"><div class="big">All clear here.</div>'+doneHere+' finished '+
+          (doneHere===1?"task is":"tasks are")+' tucked away \u2014 tap Done to see them.</div>'
+        : '<div class="empty"><div class="big">Nothing matches that filter.</div>Clear it to see the rest of your day.</div>';
+      return;
+    }
 
     var order=catNames();
     visible.forEach(function(t){ if(order.indexOf(t.category)<0) order.push(t.category); });
@@ -401,7 +425,8 @@
         if(PRANK[a.priority]!==PRANK[b.priority]) return PRANK[a.priority]-PRANK[b.priority];
         return a.created-b.created;
       });
-      var leftInCat=items.filter(function(t){return !t.done;}).length;
+      // Counted across the filtered set, not the visible one, so the badge is right either way.
+      var leftInCat=inFilter.filter(function(t){return t.category===cat&&!t.done;}).length;
       var col=colorFor(cat);
       var sec=document.createElement("section");
       sec.className="cat"+(leftInCat===0?" cat-done":"");
@@ -427,10 +452,11 @@
     row.className="task"+(t.done?" done":""); row.setAttribute("data-p",t.priority);
     var box=document.createElement("input");
     box.type="checkbox"; box.className="box"; box.checked=t.done;
-    box.setAttribute("aria-label",(t.done?"Mark not done: ":"Mark done: ")+t.text);
+    box.setAttribute("aria-label",(t.done?"Mark not done: ":"Mark done: ")+label);
     box.addEventListener("change",function(){ t.done=box.checked; save(); render(); });
     var body=document.createElement("div"); body.className="t-body";
-    var txt=document.createElement("div"); txt.className="t-text"; txt.textContent=t.text;
+    var label=taskLabel(t);
+    var txt=document.createElement("div"); txt.className="t-text"; txt.textContent=label;
     var meta=document.createElement("div"); meta.className="t-meta";
     var pri=document.createElement("span"); pri.className="pri-tag "+t.priority; pri.textContent=t.priority; meta.appendChild(pri);
     t.tags.forEach(function(g){
@@ -454,7 +480,7 @@
 
     body.appendChild(txt); body.appendChild(meta);
     if(expanded[t.id]) body.appendChild(subsEl(t));
-    var del=document.createElement("button"); del.className="del"; del.innerHTML="&times;"; del.setAttribute("aria-label","Delete task: "+t.text);
+    var del=document.createElement("button"); del.className="del"; del.innerHTML="&times;"; del.setAttribute("aria-label","Delete task: "+label);
     del.addEventListener("click",function(){ state.tasks=state.tasks.filter(function(x){return x.id!==t.id;}); save(); render(); });
     row.appendChild(box); row.appendChild(body); row.appendChild(del);
     return row;
@@ -511,6 +537,12 @@
     elToggleTags.textContent=tagsOpen?"Hide tags":"Tags ("+tags.length+")";
     elToggleTags.setAttribute("aria-expanded",tagsOpen?"true":"false");
     updateClearBtn(); }
+  function syncDoneBtn(n){
+    elToggleDone.hidden=(n===0&&!showDone);
+    elToggleDone.textContent=showDone?"Hide done":"Done ("+n+")";
+    elToggleDone.setAttribute("aria-pressed",showDone?"true":"false");
+  }
+
   function updateClearBtn(){ elClearFilter.hidden=(filter.category==="all"&&!filter.tag); }
 
   function renderMgr(){
@@ -576,6 +608,34 @@
     return true;
   }
 
+  // Trims the August coursework/NSLS run-up and the old Florida dates out of saved state, and adds
+  // the three replacements. Safe to run anywhere: the ids below only exist in state seeded by the
+  // old positional array, and the additions are deduplicated by id.
+  var TRIM_ID="2026-09-trim";
+  var trimIds=["seed0","seed1","seed2","seed3","seed4",   // NSLS: the SNTs, steps-to-induction, ceremony
+               "seed5","seed6","seed7","seed8","seed9",   // School: capstone cycles, orientations, task 2
+               "seed13"];                                 // Personal: the August Florida trip
+  function applyTrim(){
+    if(!markApplied(TRIM_ID)) return false;
+    state.tasks=state.tasks.filter(function(t){ return trimIds.indexOf(t.id)<0; });
+    var have={}; state.tasks.forEach(function(t){ have[t.id]=1; });
+    ["s-nsls-kit","s-school-deg","s-fl-oct"].forEach(function(id){
+      if(!have[id]) state.tasks.push(cloneTask(seedById(id)));
+    });
+    return true;
+  }
+
+  // Converts the newsletter task from a baked-in date to the computed one.
+  var RECUR_ID="2026-09-recur";
+  function applyRecur(){
+    if(!markApplied(RECUR_ID)) return false;
+    var base=seedById("s-ke-post");
+    state.tasks.forEach(function(t){
+      if(t.id==="seed12"||t.id==="s-ke-post"){ t.text=base.text; t.recur=base.recur; }
+    });
+    return true;
+  }
+
   function addTask(){
     var text=elText.value.trim(); if(!text) return;
     var cat=elCatSelect.value||(state.categories[0]&&state.categories[0].name)||"Personal";
@@ -591,8 +651,9 @@
     Array.prototype.forEach.call(priSeg.querySelectorAll("button"),function(x){ x.setAttribute("aria-pressed",x===b?"true":"false"); }); });
   elCatFilter.addEventListener("change",function(){ filter.category=elCatFilter.value; render(); });
   elClearFilter.addEventListener("click",function(){ filter.category="all"; filter.tag=null; render(); });
+  elToggleDone.addEventListener("click",function(){ showDone=!showDone; render(); });
   elToggleTags.addEventListener("click",function(){ tagsOpen=!tagsOpen; render(); });
-  elToggleMgr.addEventListener("click",function(){ mgrOpen=!mgrOpen; elMgr.hidden=!mgrOpen; elToggleMgr.textContent=mgrOpen?"Done":"Areas"; if(mgrOpen) renderMgr(); });
+  elToggleMgr.addEventListener("click",function(){ mgrOpen=!mgrOpen; elMgr.hidden=!mgrOpen; elToggleMgr.textContent=mgrOpen?"Close":"Areas"; if(mgrOpen) renderMgr(); });
 
   load().then(function(saved){
     var had=!!(saved&&saved.categories&&saved.tasks);
@@ -604,6 +665,8 @@
     // running it. Skipping this would leave it pending, and the NEXT load -- which does have saved
     // state -- would apply it to the renumbered ids and remove the wrong task.
     if(had?applyMaintenance():markApplied(MAINT_ID)) changed=true;
+    if(applyTrim()) changed=true;
+    if(applyRecur()) changed=true;
     if(changed) save();
     render();
   });
