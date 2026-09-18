@@ -73,6 +73,7 @@
   .chip[aria-pressed="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
   .chip.tag[aria-pressed="true"]{background:var(--go); border-color:var(--go)}
   .spacer{flex:1}
+  .f-actions{display:flex; align-items:center; gap:9px; flex:none}
   .link-btn{border:none; background:none; color:var(--go-ink); font-weight:600; cursor:pointer; font-size:14px; padding:6px}
   .link-btn:hover{text-decoration:underline}
 
@@ -187,8 +188,11 @@
       <select id="cat-filter" aria-label="Filter by category"></select>
       <span id="tag-filters"></span>
       <div class="spacer"></div>
-      <button class="link-btn" id="clear-filter" hidden>Clear filter</button>
-      <button class="link-btn" id="toggle-mgr">Areas</button>
+      <span class="f-actions">
+        <button class="link-btn" id="clear-filter" hidden>Clear filter</button>
+        <button class="link-btn" id="toggle-tags" hidden>Tags</button>
+        <button class="link-btn" id="toggle-mgr">Areas</button>
+      </span>
     </div>
 
     <div class="card mgr" id="mgr" hidden></div>
@@ -327,6 +331,7 @@
   var draftPriority="Medium";
   var filter={category:"all", tag:null};
   var mgrOpen=false;
+  var tagsOpen=false;
   var expanded={};      // task id -> sub-item list open? view state, not persisted
   var focusSub=null;    // task id whose add-item input should regain focus after render
 
@@ -349,13 +354,19 @@
   var elDate=$("date"),elLeftN=$("left-n"),elLeftLbl=$("left-lbl"),elFill=$("meter-fill"),elCap=$("meter-cap"),
       elText=$("task-text"),elAdd=$("add-btn"),elCatSelect=$("cat-select"),elTagInput=$("tag-input"),
       elCatFilter=$("cat-filter"),elTagFilters=$("tag-filters"),elClearFilter=$("clear-filter"),
-      elToggleMgr=$("toggle-mgr"),elMgr=$("mgr"),elList=$("list"),priSeg=document.querySelector(".pri-seg");
+      elToggleTags=$("toggle-tags"),elToggleMgr=$("toggle-mgr"),elMgr=$("mgr"),elList=$("list"),
+      priSeg=document.querySelector(".pri-seg");
 
   function colorFor(name){ for(var i=0;i<state.categories.length;i++){ if(state.categories[i].name===name) return state.categories[i].color; } return "#9AA3B0"; }
   function catNames(){ return state.categories.map(function(c){return c.name;}); }
   function nextColor(){ for(var i=0;i<PALETTE.length;i++){ var used=false; for(var j=0;j<state.categories.length;j++){ if(state.categories[j].color===PALETTE[i]) used=true; } if(!used) return PALETTE[i]; } return PALETTE[state.categories.length%PALETTE.length]; }
   function parseTags(str){ return str.split(",").map(function(s){return s.trim().replace(/^#/,"");}).filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}); }
-  function allTags(){ var set={}; state.tasks.forEach(function(t){t.tags.forEach(function(g){set[g]=1;});}); return Object.keys(set).sort(); }
+  function allTags(){ var set={};
+    state.tasks.forEach(function(t){
+      if(filter.category!=="all"&&t.category!==filter.category) return;
+      t.tags.forEach(function(g){set[g]=1;});
+    });
+    return Object.keys(set).sort(); }
   function esc(s){ return s.replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
 
   function render(){
@@ -487,9 +498,17 @@
     state.categories.forEach(function(c){ var o=document.createElement("option"); o.value=c.name; o.textContent=c.name; elCatFilter.appendChild(o); });
     elCatFilter.value=(cur==="all"||catNames().indexOf(cur)>=0)?cur:"all"; updateClearBtn(); }
   function syncTagFilters(){ elTagFilters.innerHTML="";
-    allTags().forEach(function(g){ var b=document.createElement("button"); b.className="chip tag"; b.textContent="#"+g;
+    var tags=allTags();
+    // Collapsed by default so the row stays short. The active tag is always shown, even when
+    // collapsed or filtered out of the current area, so it can never get stuck on.
+    var show=tagsOpen?tags.slice():[];
+    if(filter.tag&&show.indexOf(filter.tag)<0) show.unshift(filter.tag);
+    show.forEach(function(g){ var b=document.createElement("button"); b.className="chip tag"; b.textContent="#"+g;
       b.setAttribute("aria-pressed",filter.tag===g?"true":"false");
       b.addEventListener("click",function(){ filter.tag=(filter.tag===g)?null:g; render(); }); elTagFilters.appendChild(b); });
+    elToggleTags.hidden=tags.length===0;
+    elToggleTags.textContent=tagsOpen?"Hide tags":"Tags ("+tags.length+")";
+    elToggleTags.setAttribute("aria-expanded",tagsOpen?"true":"false");
     updateClearBtn(); }
   function updateClearBtn(){ elClearFilter.hidden=(filter.category==="all"&&!filter.tag); }
 
@@ -552,6 +571,7 @@
     Array.prototype.forEach.call(priSeg.querySelectorAll("button"),function(x){ x.setAttribute("aria-pressed",x===b?"true":"false"); }); });
   elCatFilter.addEventListener("change",function(){ filter.category=elCatFilter.value; render(); });
   elClearFilter.addEventListener("click",function(){ filter.category="all"; filter.tag=null; render(); });
+  elToggleTags.addEventListener("click",function(){ tagsOpen=!tagsOpen; render(); });
   elToggleMgr.addEventListener("click",function(){ mgrOpen=!mgrOpen; elMgr.hidden=!mgrOpen; elToggleMgr.textContent=mgrOpen?"Done":"Areas"; if(mgrOpen) renderMgr(); });
 
   load().then(function(saved){
