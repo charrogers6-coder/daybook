@@ -214,6 +214,8 @@
     {name:"Personal",         color:"#DB2777"}
   ];
   var t0=Date.now();
+  // NOTE: seed ids are positional ("seed"+index), so editing this array renumbers everything after
+  // the edit. Patches that target seed ids must run against SAVED state only (see applyMaintenance).
   var seedTasks=[
     {text:"SNT #1 w/Rachel — Sun Aug 9, 2:00 PM Central in Florida (= 3 PM ET)", priority:"High", category:"NSLS", tags:["nsls","snt"]},
     {text:"SNT #2 w/Rachel — Sun Aug 16, 3:00 PM ET", priority:"High", category:"NSLS", tags:["nsls","snt"]},
@@ -225,9 +227,8 @@
     {text:"Marketplace Simulation orientation — laptop + wifi (Aug 8, 12:00 PM ET / 11 AM in FL)", priority:"High", category:"School", tags:["capstone","simulation"]},
     {text:"Capstone Task 2 — DUE Aug 19", priority:"High", category:"School", tags:["capstone","deadline"]},
     {text:"Capstone cycles 2 & 3 — done before Aug 31", priority:"Medium", category:"School", tags:["capstone","wgu"]},
-    {text:"Open business bank account + sort insurance", priority:"High", category:"HavenSync Care", tags:["business"]},
     {text:"Set up 1 social channel (Facebook or Instagram) — after Florida", priority:"Low", category:"HavenSync Care", tags:["marketing"]},
-    {text:"Publish \u201CFan into Flame\u201D — next Sun Aug 16 (biweekly)", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
+    {text:"Publish \u201CFan into Flame\u201D — 1st Sunday monthly, next Oct 4", priority:"Medium", category:"The King's Ember", tags:["substack","newsletter"]},
     {text:"Florida trip — Panama City (Aug 6–10)", priority:"Medium", category:"Personal", tags:["travel","florida"]}
   ].map(function(t,i){ t.id="seed"+i; t.done=false; t.created=t0+i; return t; });
 
@@ -556,6 +557,25 @@
     return true;
   }
 
+  function markApplied(id){
+    if(state.patches.indexOf(id)>=0) return false;
+    state.patches.push(id); return true;
+  }
+
+  // One-time cleanup of state seeded by the PRE-cleanup array, where seed10 was the completed
+  // bank/insurance task and seed12 the newsletter. Seed ids are positional, so in the current
+  // array those numbers now mean the social-channel and Florida tasks -- running this against a
+  // freshly seeded state would delete the wrong task. The bootstrap therefore marks it applied
+  // on a fresh install instead of running it.
+  var MAINT_ID="2026-09-maint";
+  var NEWSLETTER_TEXT="Publish \u201CFan into Flame\u201D — 1st Sunday monthly, next Oct 4";
+  function applyMaintenance(){
+    if(!markApplied(MAINT_ID)) return false;
+    state.tasks=state.tasks.filter(function(t){ return t.id!=="seed10"; });
+    state.tasks.forEach(function(t){ if(t.id==="seed12") t.text=NEWSLETTER_TEXT; });
+    return true;
+  }
+
   function addTask(){
     var text=elText.value.trim(); if(!text) return;
     var cat=elCatSelect.value||(state.categories[0]&&state.categories[0].name)||"Personal";
@@ -575,9 +595,16 @@
   elToggleMgr.addEventListener("click",function(){ mgrOpen=!mgrOpen; elMgr.hidden=!mgrOpen; elToggleMgr.textContent=mgrOpen?"Done":"Areas"; if(mgrOpen) renderMgr(); });
 
   load().then(function(saved){
-    if(saved&&saved.categories&&saved.tasks) state=saved;
+    var had=!!(saved&&saved.categories&&saved.tasks);
+    if(had) state=saved;
     ensureCategory(HS);
-    if(applyPatch()) save();
+    if(!state.patches) state.patches=[];
+    var changed=applyPatch();
+    // A fresh install is already seeded in its post-maintenance form, so record the patch without
+    // running it. Skipping this would leave it pending, and the NEXT load -- which does have saved
+    // state -- would apply it to the renumbered ids and remove the wrong task.
+    if(had?applyMaintenance():markApplied(MAINT_ID)) changed=true;
+    if(changed) save();
     render();
   });
 })();
